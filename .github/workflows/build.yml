@@ -21,7 +21,7 @@ env:
   RELEASE_BUCKET: "slobs-crash-handler"
   ELECTRON_VERSION: "v29.4.3"
   BIN_DEPENDENCIES: "dependencies2019.0"
-  AWS_SDK_VERSION: "1.11.367"
+  AWS_SDK_VERSION: "1.11.492"
   AWS_SDK_PATH: "aws-sdk/awsi"
 
 permissions:
