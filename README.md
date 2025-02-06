@@ -9,12 +9,14 @@ yarn install
 set BIN_DEPENDENCIES=dependencies2019.0
 ci\install-bin-deps.cmd
 
-set AWS_SDK_VERSION="1.11.367"
+set AWS_SDK_VERSION="1.11.500"
 ci\build-aws-sdk.cmd
 
 ci\localization_prepare_binaries.cmd
 
+set AWS_CRASH_UPLOAD_BUCKET_KEY=your_aws_bucket_key_for_memory_dumps
 set INSTALL_PACKAGE_PATH="../desktop/node_modules/crash-handler"
+
 cmake  -B"build" -G"Visual Studio 17 2022" -A x64  -DDepsPath="%CD%\build\deps\%BIN_DEPENDENCIES%\win64" -DBOOST_ROOT="%CD%\build\deps\boost"  -DCMAKE_INSTALL_PREFIX="%INSTALL_PACKAGE_PATH%"
 cmake --build "build" --target install --config RelWithDebInfo
 ```
