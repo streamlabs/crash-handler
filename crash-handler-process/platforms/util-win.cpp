@@ -561,7 +561,7 @@ bool Util::uploadToAWS(const std::wstring &wspath, const std::wstring &fileName)
 			config.region = region;
 		}
 		config.scheme = Aws::Http::Scheme::HTTPS;
-		config.verifySSL = false;
+		config.verifySSL = true;
 		config.followRedirects = Aws::Client::FollowRedirectsPolicy::NEVER;
 		Aws::Auth::AWSCredentials aws_credentials;
 		aws_credentials.SetAWSAccessKeyId(accessIDKey);

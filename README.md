@@ -9,7 +9,7 @@ yarn install
 set BIN_DEPENDENCIES=dependencies2019.0
 ci\install-bin-deps.cmd
 
-set AWS_SDK_VERSION="1.11.492"
+set AWS_SDK_VERSION="1.11.500"
 ci\build-aws-sdk.cmd
 
 ci\localization_prepare_binaries.cmd
