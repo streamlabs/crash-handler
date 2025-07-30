@@ -1,4 +1,4 @@
-﻿CMAKE_MINIMUM_REQUIRED(VERSION 3.15)
+﻿cmake_minimum_required(VERSION 3.22...3.25)
 PROJECT(crash-handler VERSION 0.0.1)
 
 if(APPLE)

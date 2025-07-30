@@ -26,5 +26,5 @@ ${CMAKE_OSX_ARCHITECTURES_PARAM} \
 -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
 cd ..
-
+ci/localization_prepare_binaries_osx.sh
 cmake --build build --target install --config RelWithDebInfo
