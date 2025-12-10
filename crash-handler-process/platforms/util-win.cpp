@@ -32,11 +32,20 @@
 
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
+#include <aws/cognito-identity/CognitoIdentityClient.h>
+#include <aws/identity-management/auth/CognitoCachingCredentialsProvider.h>
 #include <aws/core/client/ClientConfiguration.h>
 #include <aws/core/utils/logging/LogLevel.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/BucketLocationConstraint.h>
 #include <aws/s3/model/PutObjectRequest.h>
+#include <aws/s3/model/CreateMultipartUploadRequest.h>
+#include <aws/s3/model/UploadPartRequest.h>
+#include <aws/s3/model/CompleteMultipartUploadRequest.h>
+#include <aws/s3/model/AbortMultipartUploadRequest.h>
+#include <aws/s3/model/CompletedPart.h>
+#include <aws/s3/model/CompletedMultipartUpload.h>
+#include <aws/core/utils/logging/ConsoleLogSystem.h>
 
 #pragma comment(lib, "userenv.lib")
 #pragma comment(lib, "ws2_32.lib")
@@ -81,12 +90,6 @@ struct unhandledHandlerObj {
 };
 
 unhandledHandlerObj unhandledHandlerObj_Impl;
-
-#ifndef AWS_CRASH_UPLOAD_BUCKET_KEY
-#define AWS_CRASH_UPLOAD_BUCKET_KEY "KEY"
-#endif
-
-#define GET_KEY []() { return AWS_CRASH_UPLOAD_BUCKET_KEY; }()
 
 const std::wstring appStateFileName = L"\\appState";
 std::wstring appCachePath = L"";
@@ -472,71 +475,149 @@ std::condition_variable upload_variable;
 long long total_sent_amout = 0;
 std::chrono::steady_clock::time_point last_progress_update;
 std::unique_ptr<Aws::S3::S3Client> s3_client_ptr;
+bool upload_aborted = false;
 
 void PutObjectAsyncFinished(const Aws::S3::S3Client *s3Client, const Aws::S3::Model::PutObjectRequest &request, const Aws::S3::Model::PutObjectOutcome &outcome,
 			    const std::shared_ptr<const Aws::Client::AsyncCallerContext> &context)
 {
 	if (outcome.IsSuccess()) {
 		log_info << "PutObjectAsyncFinished: Finished uploading '" << context->GetUUID() << "'." << std::endl;
+		log_info << "RequestId=" << outcome.GetResult().GetRequestId() << ", ETag=" << outcome.GetResult().GetETag() << std::endl;
 	} else {
 		total_sent_amout = -1;
-		log_error << "PutObjectAsyncFinished failed " << outcome.GetError().GetMessage() << std::endl;
+		const auto &err = outcome.GetError();
+		log_error << "PutObjectAsyncFinished failed | Message=" << err.GetMessage() << ", ExceptionName=" << err.GetExceptionName()
+			  << ", ResponseCode=" << (int)err.GetResponseCode() << ", Retryable=" << (err.ShouldRetry() ? "true" : "false") << std::endl;
 	}
 
 	upload_variable.notify_one();
 }
 
-bool PutObjectAsync(const Aws::S3::S3Client &s3_client, const Aws::String &bucket_name, const std::wstring &file_path, const std::wstring &file_name)
+bool UploadFileMultipart(const Aws::S3::S3Client &s3_client, const Aws::String &bucket_name, const std::wstring &file_path, const std::wstring &file_name)
 {
-	log_info << "PutObjectAsync started  " << std::endl;
-	Aws::S3::Model::PutObjectRequest request;
-	request.SetDataSentEventHandler([](const Aws::Http::HttpRequest *, long long amount) {
-		total_sent_amout += amount;
+	const size_t PART_SIZE = 10 * 1024 * 1024; // 10MB parts
+	Aws::String key = Aws::String("crash_memory_dumps/") + Aws::String(std::string(file_name.begin(), file_name.end()));
 
-		std::chrono::steady_clock::time_point now_time = std::chrono::steady_clock::now();
-		if (std::chrono::duration_cast<std::chrono::milliseconds>(now_time - last_progress_update).count() > 500) {
-			last_progress_update = now_time;
-			UploadWindow::getInstance()->setUploadProgress(total_sent_amout);
-		}
-	});
-
-	request.SetBucket(bucket_name);
-
-	Aws::String aws_file_name = Aws::String(std::string(file_name.begin(), file_name.end()));
-	request.SetKey(Aws::String("crash_memory_dumps/") + aws_file_name);
-
-	std::shared_ptr<Aws::IOStream> input_data;
-	std::fstream *fs = new std::fstream();
 	std::filesystem::path uploaded_file = file_path;
 	uploaded_file.append(file_name);
-	input_data.reset(fs);
-	try {
-		fs->exceptions(std::fstream::failbit | std::fstream::badbit);
-		fs->open(uploaded_file, std::ios_base::in | std::ios_base::binary);
-	} catch (std::fstream::failure f) {
-		log_info << "PutObjectAsync failed open file " << uploaded_file.generic_string() << std::endl;
-		return false;
-	} catch (std::exception e) {
-		log_info << "PutObjectAsync failed open file " << uploaded_file.generic_string() << std::endl;
+
+	std::ifstream file(uploaded_file, std::ios::binary | std::ios::ate);
+	if (!file.is_open()) {
+		log_error << "Failed to open file for multipart upload: " << uploaded_file.generic_string() << std::endl;
 		return false;
 	}
-	fs->exceptions(std::fstream::goodbit);
 
-	request.SetBody(input_data);
+	size_t file_size = file.tellg();
+	file.seekg(0, std::ios::beg);
+	log_info << "Multipart upload: file size=" << file_size << " bytes, part size=" << PART_SIZE << std::endl;
 
-	log_info << "PutObjectAsync ready to call PutObjectAsync " << std::endl;
-	std::shared_ptr<Aws::Client::AsyncCallerContext> context = Aws::MakeShared<Aws::Client::AsyncCallerContext>("PutObjectAllocationTag");
-	context->SetUUID(request.GetKey());
-	s3_client.PutObjectAsync(request, PutObjectAsyncFinished, context);
-	log_info << "PutObjectAsync finished. Wait for async result." << std::endl;
+	Aws::S3::Model::CreateMultipartUploadRequest create_request;
+	create_request.SetBucket(bucket_name);
+	create_request.SetKey(key);
+	create_request.SetContentType("application/zip");
 
+	auto create_outcome = s3_client.CreateMultipartUpload(create_request);
+	if (!create_outcome.IsSuccess()) {
+		log_error << "Failed to initiate multipart upload: " << create_outcome.GetError().GetMessage() << std::endl;
+		file.close();
+		return false;
+	}
+
+	Aws::String upload_id = create_outcome.GetResult().GetUploadId();
+	log_info << "Multipart upload initiated: uploadId=" << std::string(upload_id.c_str()) << std::endl;
+
+	Aws::Vector<Aws::S3::Model::CompletedPart> completed_parts;
+	int part_number = 1;
+	total_sent_amout = 0;
+
+	while (file && !upload_aborted) {
+		std::vector<char> buffer(PART_SIZE);
+		file.read(buffer.data(), PART_SIZE);
+		std::streamsize bytes_read = file.gcount();
+
+		if (bytes_read == 0)
+			break;
+
+		log_info << "Uploading part " << part_number << ", size=" << bytes_read << " bytes" << std::endl;
+
+		auto stream = Aws::MakeShared<Aws::StringStream>("UploadPartStream");
+		stream->write(buffer.data(), bytes_read);
+
+		Aws::S3::Model::UploadPartRequest part_request;
+		part_request.SetBucket(bucket_name);
+		part_request.SetKey(key);
+		part_request.SetUploadId(upload_id);
+		part_request.SetPartNumber(part_number);
+		part_request.SetBody(stream);
+		part_request.SetContentLength(bytes_read);
+
+		auto part_outcome = s3_client.UploadPart(part_request);
+		if (!part_outcome.IsSuccess()) {
+			log_error << "Failed to upload part " << part_number << ": " << part_outcome.GetError().GetMessage() << std::endl;
+
+			Aws::S3::Model::AbortMultipartUploadRequest abort_request;
+			abort_request.SetBucket(bucket_name);
+			abort_request.SetKey(key);
+			abort_request.SetUploadId(upload_id);
+			s3_client.AbortMultipartUpload(abort_request);
+
+			file.close();
+			return false;
+		}
+
+		Aws::S3::Model::CompletedPart completed_part;
+		completed_part.SetPartNumber(part_number);
+		completed_part.SetETag(part_outcome.GetResult().GetETag());
+		completed_parts.push_back(completed_part);
+
+		total_sent_amout += bytes_read;
+		UploadWindow::getInstance()->setUploadProgress(total_sent_amout);
+
+		part_number++;
+	}
+
+	file.close();
+
+	if (upload_aborted) {
+		log_info << "Upload aborted by user" << std::endl;
+		Aws::S3::Model::AbortMultipartUploadRequest abort_request;
+		abort_request.SetBucket(bucket_name);
+		abort_request.SetKey(key);
+		abort_request.SetUploadId(upload_id);
+		s3_client.AbortMultipartUpload(abort_request);
+		return false;
+	}
+
+	Aws::S3::Model::CompletedMultipartUpload completed_upload;
+	completed_upload.SetParts(completed_parts);
+
+	Aws::S3::Model::CompleteMultipartUploadRequest complete_request;
+	complete_request.SetBucket(bucket_name);
+	complete_request.SetKey(key);
+	complete_request.SetUploadId(upload_id);
+	complete_request.SetMultipartUpload(completed_upload);
+
+	auto complete_outcome = s3_client.CompleteMultipartUpload(complete_request);
+	if (!complete_outcome.IsSuccess()) {
+		log_error << "Failed to complete multipart upload: " << complete_outcome.GetError().GetMessage() << std::endl;
+
+		Aws::S3::Model::AbortMultipartUploadRequest abort_request;
+		abort_request.SetBucket(bucket_name);
+		abort_request.SetKey(key);
+		abort_request.SetUploadId(upload_id);
+		s3_client.AbortMultipartUpload(abort_request);
+
+		return false;
+	}
+
+	log_info << "Multipart upload completed successfully, ETag=" << std::string(complete_outcome.GetResult().GetETag().c_str()) << std::endl;
 	return true;
 }
 
 void Util::abortUploadAWS()
 {
 	std::lock_guard<std::mutex> grd(s3_mutex);
-
+	upload_aborted = true;
 	if (s3_client_ptr != nullptr)
 		s3_client_ptr->DisableRequestProcessing();
 }
@@ -545,15 +626,17 @@ bool Util::uploadToAWS(const std::wstring &wspath, const std::wstring &fileName)
 {
 	UploadWindow::getInstance()->uploadStarted();
 	bool ret = false;
+	upload_aborted = false;
 	Aws::SDKOptions options;
+	options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Warn;
+	options.loggingOptions.logger_create_fn = []() {
+		return Aws::MakeShared<Aws::Utils::Logging::ConsoleLogSystem>("AWSLog", Aws::Utils::Logging::LogLevel::Warn);
+	};
 	Aws::InitAPI(options);
 	{
 		const Aws::String bucket_name = "streamlabs-obs-user-cache";
 		const Aws::String region = "us-west-2";
-		const Aws::String accessIDKey = "AKIAIAINC32O7I3KUJGQ";
-		const Aws::String Key = GET_KEY;
-
-		std::unique_lock<std::mutex> lock(upload_mutex);
+		const Aws::String identityPoolId = "us-west-2:d5badad4-ff41-4a80-8677-e2757ab32263";
 
 		Aws::Client::ClientConfiguration config;
 
@@ -563,30 +646,35 @@ bool Util::uploadToAWS(const std::wstring &wspath, const std::wstring &fileName)
 		config.scheme = Aws::Http::Scheme::HTTPS;
 		config.verifySSL = true;
 		config.followRedirects = Aws::Client::FollowRedirectsPolicy::NEVER;
-		Aws::Auth::AWSCredentials aws_credentials;
-		aws_credentials.SetAWSAccessKeyId(accessIDKey);
-		aws_credentials.SetAWSSecretKey(Key);
+		config.enableTcpKeepAlive = true;
+		config.maxConnections = 25;
+		config.lowSpeedLimit = 1;
+		config.connectTimeoutMs = 30000;
+		config.requestTimeoutMs = 600000;
+		config.httpLibOverride = Aws::Http::TransferLibType::WIN_HTTP_CLIENT;
+		log_info << "AWS ClientConfig | region=" << std::string(config.region.c_str()) << ", connectTimeoutMs=" << config.connectTimeoutMs
+			 << ", requestTimeoutMs=" << config.requestTimeoutMs
+			 << ", httpLibOverride=WIN_HTTP, tcpKeepAlive=" << (config.enableTcpKeepAlive ? "true" : "false") << std::endl;
+
+		auto cognitoClient = Aws::MakeShared<Aws::CognitoIdentity::CognitoIdentityClient>("CognitoClient", config);
+		auto credentialsProvider =
+			Aws::MakeShared<Aws::Auth::CognitoCachingAnonymousCredentialsProvider>("CognitoProvider", identityPoolId, cognitoClient);
 
 		{
 			std::lock_guard<std::mutex> grd(s3_mutex);
 
-			s3_client_ptr =
-				std::make_unique<Aws::S3::S3Client>(aws_credentials, config, Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never, false);
+			s3_client_ptr = std::make_unique<Aws::S3::S3Client>(credentialsProvider, config,
+									    Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::RequestDependent, false);
 		}
 
-		log_info << "Upload to ASW ready to start upload" << std::endl;
-		if (!PutObjectAsync(*s3_client_ptr, bucket_name, wspath, fileName)) {
-			log_info << "Upload to ASW PutObjectAsync failed" << std::endl;
+		log_info << "Upload to ASW ready to start multipart upload" << std::endl;
+		if (!UploadFileMultipart(*s3_client_ptr, bucket_name, wspath, fileName)) {
+			log_info << "Upload to ASW multipart upload failed" << std::endl;
 			UploadWindow::getInstance()->uploadFailed();
 		} else {
-			upload_variable.wait(lock);
-			if (total_sent_amout > 0) {
-				log_info << "Upload to ASW File upload attempt completed." << std::endl;
-				UploadWindow::getInstance()->uploadFinished();
-				ret = true;
-			} else {
-				UploadWindow::getInstance()->uploadFailed();
-			}
+			log_info << "Upload to ASW multipart upload completed successfully." << std::endl;
+			UploadWindow::getInstance()->uploadFinished();
+			ret = true;
 		}
 	}
 

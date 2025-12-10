@@ -123,12 +123,12 @@ IF(WIN32)
 	#AWSSDK gives linking error if PkgCOnfig not found explicitly before awssdk find_package
 	find_package(PkgConfig QUIET)
 
-	find_package(AWSSDK REQUIRED COMPONENTS s3 sts)
+	find_package(AWSSDK REQUIRED COMPONENTS s3 sts cognito-identity identity-management)
 
 	if(MSVC AND BUILD_SHARED_LIBS)
 		add_definitions(-DUSE_IMPORT_EXPORT)
 
-		list(APPEND SERVICE_LIST s3 sts)
+		list(APPEND SERVICE_LIST s3 sts cognito-identity identity-management)
 
 		set(CMAKE_BUILD_TYPE Release) 
 		
@@ -145,7 +145,6 @@ IF(WIN32)
 		"${CMAKE_CURRENT_BINARY_DIR}/awsi/include/"
 		"${nlohmannjson_SOURCE_DIR}/" 
 		"${ZLIB_INCLUDE_DIRS}")
-	add_compile_definitions(AWS_CRASH_UPLOAD_BUCKET_KEY=\"$ENV{AWS_CRASH_UPLOAD_BUCKET_KEY}\")
 
 	target_sources(crash-handler-process PUBLIC "${PROJECT_SOURCE_DIR}/platforms/resource-win.rc")
 
