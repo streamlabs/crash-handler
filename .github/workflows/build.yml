@@ -21,7 +21,7 @@ env:
   RELEASE_BUCKET: "slobs-crash-handler"
   ELECTRON_VERSION: "v29.4.3"
   BIN_DEPENDENCIES: "dependencies2019.0"
-  AWS_SDK_VERSION: "1.11.500"
+  AWS_SDK_VERSION: "1.11.704"
   AWS_SDK_PATH: "aws-sdk/awsi"
 
 permissions:
@@ -84,7 +84,6 @@ jobs:
         run: cmake -H"${{ github.workspace }}" -B"${{env.BUILD_DIRECTORY}}" -G"Visual Studio 17 2022" -A x64 -DNODEJS_VERSION="${{env.ELECTRON_VERSION}}" -DDepsPath="${PWD}\build\deps\${{env.BIN_DEPENDENCIES}}\win64" -DBOOST_ROOT="${PWD}\build\deps\boost" -DCMAKE_INSTALL_PREFIX="${{env.INSTALL_PACKAGE_PATH}}"
         env:
           INSTALL_PACKAGE_PATH: "${{env.BUILD_DIRECTORY}}/${{env.DISTRIBUTE_DIRECTORY}}/${{env.PACKAGE_DIRECTORY}}"
-          AWS_CRASH_UPLOAD_BUCKET_KEY: ${{secrets.AWS_CRASH_UPLOAD_BUCKET_KEY}}
       - name: Build
         run: cmake --build "${{env.BUILD_DIRECTORY}}" --target install --config ${{env.BUILD_CONFIGURATION}}
       - name: Put version into package.json
