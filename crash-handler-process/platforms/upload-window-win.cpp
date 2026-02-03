@@ -41,6 +41,7 @@ std::unique_ptr<UploadWindow> UploadWindow::instance = nullptr;
 #define CUSTOM_UPLOAD_CANCELED (WM_USER + 10)
 #define CUSTOM_ZIPPING_STARTED (WM_USER + 11)
 #define CUSTOM_REQUESTED_CLICK (WM_USER + 12)
+constexpr int IDC_HYPERLINK = 1001;
 
 std::wstring from_utf8_to_utf16_wide(const char *from, size_t length = -1);
 
@@ -119,6 +120,7 @@ LRESULT UploadWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		SendMessage(progresss_bar_hwnd, PBM_SETRANGE32, 0, 100);
 		SendMessage(progresss_bar_hwnd, PBM_SETPOS, 0, 0);
 		ShowWindow(progresss_bar_hwnd, SW_SHOW);
+		ShowWindow(hyperlink_hwnd, SW_SHOW);
 		break;
 	}
 	case CUSTOM_PROGRESS_MSG: {
@@ -219,6 +221,14 @@ LRESULT UploadWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			upload_window_choose_variable.notify_one();
 			break;
 		}
+		// Extract notification code and control ID
+		int notificationCode = HIWORD(wParam);
+		int controlId = LOWORD(wParam);
+		if (controlId == IDC_HYPERLINK && notificationCode == STN_CLICKED) {
+			ShellExecuteW(nullptr, L"open", L"https://streamlabs.com/content-hub/post/streamlabs-desktop-crash-troubleshooting-guide", nullptr,
+				      nullptr, SW_SHOWNORMAL);
+			break;
+		}
 		break;
 	}
 	case CUSTOM_REQUESTED_CLICK: {
@@ -232,12 +242,21 @@ LRESULT UploadWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	}
-	case WM_CTLCOLORSTATIC:
+	case WM_CTLCOLORSTATIC: {
+		if ((HWND)lParam == hyperlink_hwnd) {
+			HDC hdc = (HDC)wParam;
+			SetTextColor(hdc, RGB(0, 0, 255));
+			SetBkMode(hdc, TRANSPARENT);
+			return (LRESULT)GetStockObject(NULL_BRUSH);
+		}
+		[[fallthrough]];
+	}
 	case WM_CTLCOLOREDIT: {
 		if ((HWND)lParam == upload_label_hwnd) {
 			HDC hdc = (HDC)wParam;
 			return (LRESULT)GetStockObject(CTLCOLOR_MSGBOX);
 		}
+		break;
 	}
 	}
 
@@ -385,7 +404,7 @@ void UploadWindow::windowThread()
 	int x_pos = 10;
 	int y_pos = 10;
 	int x_size = 470;
-	int y_size = 250;
+	int y_size = height;
 	RECT client_rect;
 	if (GetClientRect(upload_window_hwnd, &client_rect)) {
 		x_size = client_rect.right - client_rect.left;
@@ -395,8 +414,15 @@ void UploadWindow::windowThread()
 	progresss_bar_hwnd = CreateWindow(PROGRESS_CLASS, TEXT("ProgressWorker"), WS_CHILD | PBS_SMOOTH, x_pos, y_pos, x_size - 20, 40, upload_window_hwnd,
 					  NULL, NULL, NULL);
 
-	upload_label_hwnd = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN, x_pos, y_pos + 50,
-					 x_size - 20, 90, upload_window_hwnd, NULL, NULL, NULL);
+	const int label_height = 90;
+	const int label_ypos = y_pos + 50;
+	upload_label_hwnd = CreateWindow(WC_EDIT, TEXT(""), WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN, x_pos, label_ypos,
+					 x_size - 20, label_height, upload_window_hwnd, NULL, NULL, NULL);
+
+	std::wstring link_text = from_utf8_to_utf16_wide(boost::locale::translate("Troubleshoot here").str().c_str());
+	const HMENU hyperlinkId = reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_HYPERLINK));
+	hyperlink_hwnd = CreateWindow(WC_STATIC, link_text.c_str(), SS_LEFT | WS_CHILD | SS_NOTIFY, x_pos, y_pos + (label_ypos + label_height), x_size - 20, 20,
+				      upload_window_hwnd, hyperlinkId, NULL, NULL);
 
 	std::wstring yes_button_title = from_utf8_to_utf16_wide(boost::locale::translate("Yes").str().c_str());
 	std::wstring no_button_title = from_utf8_to_utf16_wide(boost::locale::translate("No").str().c_str());
@@ -429,6 +455,11 @@ void UploadWindow::windowThread()
 		SendMessage(cancel_button_hwnd, WM_SETFONT, WPARAM(main_font), TRUE);
 		SendMessage(no_button_hwnd, WM_SETFONT, WPARAM(main_font), TRUE);
 	}
+	HFONT underline_font = CreateFont(0, 0, 0, 0, FW_NORMAL, FALSE, TRUE /* underline */, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+					  DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+	if (hyperlink_hwnd && underline_font) {
+		SendMessage(hyperlink_hwnd, WM_SETFONT, WPARAM(underline_font), TRUE);
+	}
 	SendMessage(upload_label_hwnd, EM_SETREADONLY, TRUE, 0);
 
 	upload_window_choose_variable.notify_one();
@@ -442,7 +473,9 @@ void UploadWindow::windowThread()
 	if (main_font) {
 		DeleteObject(main_font);
 	}
-
+	if (underline_font) {
+		DeleteObject(underline_font);
+	}
 	log_info << "UploadWindow windowThread at finish" << std::endl;
 }
 
