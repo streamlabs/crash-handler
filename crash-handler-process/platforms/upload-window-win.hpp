@@ -81,8 +81,9 @@ private:
 	HWND yes_button_hwnd = NULL;
 	HWND cancel_button_hwnd = NULL;
 	HWND no_button_hwnd = NULL;
+	HWND hyperlink_hwnd = NULL;
 	int width = 500;
-	int height = 250;
+	int height = 300;
 
 	bool user_wants_to_close = false;
 	int button_clicked = 0;

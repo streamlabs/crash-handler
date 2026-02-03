@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-02-28 12:07-0800\n"
+"POT-Creation-Date: 2026-02-02 17:47-0600\n"
 "PO-Revision-Date: 2022-09-03 12:16-0700\n"
 "Last-Translator: <EMAIL@ADDRESS>\n"
 "Language-Team: Spanish\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: crash-handler-process\platforms\util-osx.mm:31
-#: crash-handler-process\platforms\util-win.cpp:116
+#: crash-handler-process\platforms\util-win.cpp:119
 msgid ""
 "An error occurred which has caused Streamlabs Desktop to close. Don't worry! "
 "If you were streaming or recording, that is still happening in the "
@@ -28,7 +28,7 @@ msgstr ""
 "continúa en segundo plano."
 
 #: crash-handler-process\platforms\util-osx.mm:33
-#: crash-handler-process\platforms\util-win.cpp:119
+#: crash-handler-process\platforms\util-win.cpp:122
 msgid ""
 "Whenever you're ready, we can relaunch the application, however this will "
 "end your stream / recording session."
@@ -37,17 +37,17 @@ msgstr ""
 "sesión de streaming/grabación."
 
 #: crash-handler-process\platforms\util-osx.mm:35
-#: crash-handler-process\platforms\util-win.cpp:122
+#: crash-handler-process\platforms\util-win.cpp:125
 msgid "Click the Yes button to keep streaming / recording."
 msgstr "Haga clic en el botón Sí para seguir haciendo streaming/grabando."
 
 #: crash-handler-process\platforms\util-osx.mm:36
-#: crash-handler-process\platforms\util-win.cpp:124
+#: crash-handler-process\platforms\util-win.cpp:127
 msgid "Click the No button to stop streaming / recording."
 msgstr "Haga clic en el botón No para detener el stream/la grabación."
 
 #: crash-handler-process\platforms\util-osx.mm:39
-#: crash-handler-process\platforms\upload-window-win.cpp:402
+#: crash-handler-process\platforms\upload-window-win.cpp:429
 msgid "No"
 msgstr "No"
 
@@ -56,12 +56,12 @@ msgid "YES"
 msgstr "SÍ"
 
 #: crash-handler-process\platforms\util-osx.mm:50
-#: crash-handler-process\platforms\upload-window-win.cpp:404
+#: crash-handler-process\platforms\upload-window-win.cpp:431
 msgid "OK"
 msgstr "Aceptar"
 
 #: crash-handler-process\platforms\util-osx.mm:51
-#: crash-handler-process\platforms\util-win.cpp:133
+#: crash-handler-process\platforms\util-win.cpp:136
 msgid ""
 "Your stream / recording session is still running in the background. Whenever "
 "you're ready, click the OK button below to end your stream / recording and "
@@ -71,48 +71,48 @@ msgstr ""
 "Cuando quiera, haga clic en el botón Aceptar para terminar su sesión de "
 "streaming/grabación y reiniciar la aplicación."
 
-#: crash-handler-process\platforms\util-win.cpp:114
+#: crash-handler-process\platforms\util-win.cpp:117
 msgid "An error occurred"
 msgstr "Se ha producido un error."
 
-#: crash-handler-process\platforms\util-win.cpp:132
+#: crash-handler-process\platforms\util-win.cpp:135
 msgid "Choose when to restart"
 msgstr "Elija cuándo reiniciar"
 
-#: crash-handler-process\platforms\upload-window-win.cpp:111
+#: crash-handler-process\platforms\upload-window-win.cpp:112
 msgid "The application just crashed."
 msgstr ""
 
-#: crash-handler-process\platforms\upload-window-win.cpp:112
+#: crash-handler-process\platforms\upload-window-win.cpp:113
 msgid "Would you like to send a report to the developers?"
 msgstr ""
 
-#: crash-handler-process\platforms\upload-window-win.cpp:127
+#: crash-handler-process\platforms\upload-window-win.cpp:129
 #, c-format
 msgid ""
 "Uploading... %.2f%%\r\n"
 "%.1f / %.1fmb"
 msgstr ""
 
-#: crash-handler-process\platforms\upload-window-win.cpp:134
+#: crash-handler-process\platforms\upload-window-win.cpp:136
 #, c-format
 msgid "Saving... to \"%s\""
 msgstr ""
 
-#: crash-handler-process\platforms\upload-window-win.cpp:143
+#: crash-handler-process\platforms\upload-window-win.cpp:145
 #, c-format
 msgid "Zipping... to \"%s\""
 msgstr ""
 
-#: crash-handler-process\platforms\upload-window-win.cpp:152
+#: crash-handler-process\platforms\upload-window-win.cpp:154
 msgid "Failed to save the local debug information."
 msgstr ""
 
-#: crash-handler-process\platforms\upload-window-win.cpp:160
+#: crash-handler-process\platforms\upload-window-win.cpp:162
 msgid "Initializing upload..."
 msgstr ""
 
-#: crash-handler-process\platforms\upload-window-win.cpp:167
+#: crash-handler-process\platforms\upload-window-win.cpp:169
 #, c-format
 msgid ""
 "Successfully uploaded the debug information.\r\n"
@@ -120,29 +120,33 @@ msgid ""
 "File: \"%s\"."
 msgstr ""
 
-#: crash-handler-process\platforms\upload-window-win.cpp:178
+#: crash-handler-process\platforms\upload-window-win.cpp:180
 #, c-format
 msgid ""
 "Upload cancleled.\r\n"
 "%s removed."
 msgstr ""
 
-#: crash-handler-process\platforms\upload-window-win.cpp:186
+#: crash-handler-process\platforms\upload-window-win.cpp:188
 #, c-format
 msgid ""
 "Upload failed. Save a copy?\r\n"
 "\"%s/%s\""
 msgstr ""
 
-#: crash-handler-process\platforms\upload-window-win.cpp:374
+#: crash-handler-process\platforms\upload-window-win.cpp:392
 msgid "Streamlabs Desktop has encountered a critical error"
 msgstr ""
 
-#: crash-handler-process\platforms\upload-window-win.cpp:401
+#: crash-handler-process\platforms\upload-window-win.cpp:422
+msgid "Troubleshoot here"
+msgstr ""
+
+#: crash-handler-process\platforms\upload-window-win.cpp:428
 msgid "Yes"
 msgstr ""
 
-#: crash-handler-process\platforms\upload-window-win.cpp:403
+#: crash-handler-process\platforms\upload-window-win.cpp:430
 msgid "Cancel"
 msgstr ""
 

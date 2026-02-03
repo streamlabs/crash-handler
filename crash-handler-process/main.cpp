@@ -22,6 +22,7 @@
 #include <codecvt>
 
 #if defined(WIN32)
+#include "platforms/upload-window-win.hpp"
 const std::string log_file_name = "\\crash-handler.log";
 #else // for __APPLE__ and other
 const std::wstring log_file_name = L"/crash-handler.log";
@@ -51,6 +52,13 @@ int main(int argc, char **argv)
 	static thread_local std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
 
 	// Frontend passes as non-unicode
+	if (nArgs == 1) {
+		// No arguments - show the UI for development.
+		UploadWindow::getInstance()->createWindow();
+		UploadWindow::getInstance()->crashCaught();
+		UploadWindow::getInstance()->waitForUserChoise();
+		return 0;
+	}
 	if (nArgs >= 1)
 		path = szArglist[0];
 	if (nArgs >= 3)
