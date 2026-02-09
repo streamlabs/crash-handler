@@ -82,6 +82,7 @@ private:
 	HWND cancel_button_hwnd = NULL;
 	HWND no_button_hwnd = NULL;
 	HWND hyperlink_hwnd = NULL;
+	HCURSOR hand_cursor = NULL;
 	int width = 500;
 	int height = 300;
 
