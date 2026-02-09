@@ -19,7 +19,7 @@ set INSTALL_PACKAGE_PATH="../desktop/node_modules/crash-handler"
 cmake  -B"build" -G"Visual Studio 17 2022" -A x64  -DDepsPath="%CD%\build\deps\%BIN_DEPENDENCIES%\win64" -DBOOST_ROOT="%CD%\build\deps\boost"  -DCMAKE_INSTALL_PREFIX="%INSTALL_PACKAGE_PATH%"
 cmake --build "build" --target install --config RelWithDebInfo
 ```
-
+If the startup project is set to `crash-handler-process` and its run with no additional args then the UI will be displayed.
 ## On macOS
 ```
 yarn install

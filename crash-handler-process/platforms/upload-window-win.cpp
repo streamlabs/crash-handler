@@ -103,6 +103,16 @@ LRESULT UploadWindow::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		return DefWindowProc(hwnd, msg, wParam, lParam);
 
 	switch (msg) {
+	case WM_SETCURSOR: {
+		HWND hHover = (HWND)wParam;
+
+		if (hHover == hyperlink_hwnd) {
+			SetCursor(hand_cursor);
+			return TRUE;
+		}
+
+		break;
+	}
 	case CUSTOM_CLOSE_MSG:
 		log_info << "UploadWindow close message recieved" << std::endl;
 		DestroyWindow(upload_window_hwnd);
@@ -423,6 +433,7 @@ void UploadWindow::windowThread()
 	const HMENU hyperlinkId = reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_HYPERLINK));
 	hyperlink_hwnd = CreateWindow(WC_STATIC, link_text.c_str(), SS_LEFT | WS_CHILD | SS_NOTIFY, x_pos, y_pos + (label_ypos + label_height), x_size - 20, 20,
 				      upload_window_hwnd, hyperlinkId, NULL, NULL);
+	hand_cursor = LoadCursor(nullptr, IDC_HAND);
 
 	std::wstring yes_button_title = from_utf8_to_utf16_wide(boost::locale::translate("Yes").str().c_str());
 	std::wstring no_button_title = from_utf8_to_utf16_wide(boost::locale::translate("No").str().c_str());
