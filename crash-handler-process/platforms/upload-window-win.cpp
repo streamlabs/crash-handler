@@ -431,7 +431,7 @@ void UploadWindow::windowThread()
 
 	std::wstring link_text = from_utf8_to_utf16_wide(boost::locale::translate("Troubleshoot here").str().c_str());
 	const HMENU hyperlinkId = reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_HYPERLINK));
-	hyperlink_hwnd = CreateWindow(WC_STATIC, link_text.c_str(), SS_LEFT | WS_CHILD | SS_NOTIFY, x_pos, y_pos + (label_ypos + label_height), x_size - 20, 20,
+	hyperlink_hwnd = CreateWindow(WC_STATIC, link_text.c_str(), SS_LEFT | WS_CHILD | SS_NOTIFY, x_pos, y_pos + (label_ypos + label_height), x_size - 20, 25,
 				      upload_window_hwnd, hyperlinkId, NULL, NULL);
 	hand_cursor = LoadCursor(nullptr, IDC_HAND);
 
@@ -457,8 +457,7 @@ void UploadWindow::windowThread()
 	showButtons({.ok = true, .cancel = true, .yes = false, .no = false});
 	enableButtons({.ok = false, .cancel = false, .yes = false, .no = false});
 
-	HFONT main_font = CreateFont(0, 0, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-				     DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+	HFONT main_font = GetFont(0, FALSE);
 	if (main_font) {
 		SendMessage(upload_label_hwnd, WM_SETFONT, WPARAM(main_font), TRUE);
 		SendMessage(ok_button_hwnd, WM_SETFONT, WPARAM(main_font), TRUE);
@@ -466,10 +465,9 @@ void UploadWindow::windowThread()
 		SendMessage(cancel_button_hwnd, WM_SETFONT, WPARAM(main_font), TRUE);
 		SendMessage(no_button_hwnd, WM_SETFONT, WPARAM(main_font), TRUE);
 	}
-	HFONT underline_font = CreateFont(0, 0, 0, 0, FW_NORMAL, FALSE, TRUE /* underline */, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-					  DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
-	if (hyperlink_hwnd && underline_font) {
-		SendMessage(hyperlink_hwnd, WM_SETFONT, WPARAM(underline_font), TRUE);
+	HFONT hyperlink_font = GetFont(25 /* height */, TRUE /* underline */);
+	if (hyperlink_hwnd && hyperlink_font) {
+		SendMessage(hyperlink_hwnd, WM_SETFONT, WPARAM(hyperlink_font), TRUE);
 	}
 	SendMessage(upload_label_hwnd, EM_SETREADONLY, TRUE, 0);
 
@@ -484,10 +482,16 @@ void UploadWindow::windowThread()
 	if (main_font) {
 		DeleteObject(main_font);
 	}
-	if (underline_font) {
-		DeleteObject(underline_font);
+	if (hyperlink_font) {
+		DeleteObject(hyperlink_font);
 	}
 	log_info << "UploadWindow windowThread at finish" << std::endl;
+}
+
+HFONT UploadWindow::GetFont(int height, DWORD isUnderlined)
+{
+	return CreateFont(height, 0, 0, 0, FW_DONTCARE, FALSE, isUnderlined, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+			  DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
 }
 
 bool UploadWindow::createWindow()

@@ -72,6 +72,7 @@ private:
 	void windowThread();
 
 	bool blockedMessageDueToShutdown(const INT msg) const;
+	HFONT GetFont(int height, DWORD isUnderlined);
 
 	HINSTANCE hInstance = NULL;
 	HWND upload_window_hwnd = NULL;
