@@ -38,7 +38,9 @@ ENDIF()
 SET(PROJECT_SOURCE
 	"${PROJECT_SOURCE_DIR}/process.hpp"
 	"${PROJECT_SOURCE_DIR}/process-manager.cpp" "${PROJECT_SOURCE_DIR}/process-manager.hpp"
+	"${PROJECT_SOURCE_DIR}/brief-crash-info-uploader.cpp" "${PROJECT_SOURCE_DIR}/brief-crash-info-uploader.hpp"
 	"${PROJECT_SOURCE_DIR}/message.cpp" "${PROJECT_SOURCE_DIR}/message.hpp"
+	"${PROJECT_SOURCE_DIR}/http-helper.hpp"
 	"${PROJECT_SOURCE_DIR}/socket.hpp"
 	"${PROJECT_SOURCE_DIR}/logger.cpp" "${PROJECT_SOURCE_DIR}/logger.hpp"
 	"${PROJECT_SOURCE_DIR}/main.cpp"
@@ -50,7 +52,9 @@ IF(WIN32)
 		"${PROJECT_SOURCE_DIR}/platforms/util-win.cpp"
 		"${PROJECT_SOURCE_DIR}/platforms/socket-win.cpp" "${PROJECT_SOURCE_DIR}/platforms/socket-win.hpp"
 		"${PROJECT_SOURCE_DIR}/platforms/process-win.cpp" "${PROJECT_SOURCE_DIR}/platforms/process-win.hpp"
-		"${PROJECT_SOURCE_DIR}/platforms/upload-window-win.cpp" "${PROJECT_SOURCE_DIR}/platforms/upload-window-win.hpp"		
+		"${PROJECT_SOURCE_DIR}/platforms/upload-window-win.cpp" "${PROJECT_SOURCE_DIR}/platforms/upload-window-win.hpp"
+		"${PROJECT_SOURCE_DIR}/platforms/httprequest_i.c" "${PROJECT_SOURCE_DIR}/platforms/httprequest.h"
+		"${PROJECT_SOURCE_DIR}/platforms/http-helper-win.cpp" "${PROJECT_SOURCE_DIR}/platforms/http-helper-win.hpp"
 		"${PROJECT_SOURCE_DIR}/minizip/zip.c" "${PROJECT_SOURCE_DIR}/minizip/zip.h"
 		"${PROJECT_SOURCE_DIR}/minizip/ioapi.c" "${PROJECT_SOURCE_DIR}/minizip/ioapi.h"
 		"${PROJECT_SOURCE_DIR}/minizip/iowin32.c" "${PROJECT_SOURCE_DIR}/minizip/iowin32.h"
@@ -60,7 +64,7 @@ ELSE(APPLE)
 		"${PROJECT_SOURCE_DIR}/platforms/util-osx.mm"
 		"${PROJECT_SOURCE_DIR}/platforms/socket-osx.cpp" "${PROJECT_SOURCE_DIR}/platforms/socket-osx.hpp"
 		"${PROJECT_SOURCE_DIR}/platforms/process-osx.mm" "${PROJECT_SOURCE_DIR}/platforms/process-osx.hpp"
-
+		"${PROJECT_SOURCE_DIR}/platforms/http-helper-osx.mm" "${PROJECT_SOURCE_DIR}/platforms/http-helper-osx.hpp"
 	)
 	find_library(COCOA Cocoa)
 	# Prepare gettext
