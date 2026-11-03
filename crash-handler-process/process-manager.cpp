@@ -77,6 +77,8 @@ void ProcessManager::watcher_fnc()
 			case Action::REGISTER: {
 				bool isCritical = msg.readBool();
 				uint32_t pid = msg.readUInt32();
+				if (!msg.isValid())
+					break;
 				size_t size = registerProcess(isCritical, pid);
 				if (size == 1)
 					startMonitoring();
@@ -85,6 +87,8 @@ void ProcessManager::watcher_fnc()
 			}
 			case Action::UNREGISTER: {
 				uint32_t pid = msg.readUInt32();
+				if (!msg.isValid())
+					break;
 				unregisterProcess(pid);
 				break;
 			}
@@ -95,18 +99,41 @@ void ProcessManager::watcher_fnc()
 				std::wstring eventName_Success = msg.readWstring();
 				std::wstring dumpPath = msg.readWstring();
 				std::wstring dumpName = msg.readWstring();
+				if (!msg.isValid())
+					break;
 				registerProcessMemoryDump(pid, eventName_Start, eventName_Fail, eventName_Success, dumpPath, dumpName);
 				break;
 			}
 			case Action::CRASHED_MODULE_INFO: {
 				const auto moduleName = msg.readString();
 				const auto modulePath = msg.readString();
+				if (!msg.isValid())
+					break;
 				log_info << "crashed_module_info " << moduleName << " (" << modulePath << ")" << std::endl;
+				break;
+			}
+			case Action::OUTPUT_STATE: {
+				uint32_t pid = msg.readUInt32();
+				bool active = msg.readBool();
+				if (!msg.isValid())
+					break;
+				log_info << "output state pid " << pid << " active " << active << std::endl;
+				this->outputActive[pid] = active;
+				break;
+			}
+			case Action::SHUTDOWN_INTENT: {
+				uint32_t pid = msg.readUInt32();
+				if (!msg.isValid())
+					break;
+				log_info << "shutdown intent pid " << pid << std::endl;
+				this->m_shutdownIntent = true;
 				break;
 			}
 			default:
 				break;
 			}
+			if (!msg.isValid())
+				log_error << "Dropped invalid message, size " << buffer.size() << std::endl;
 			buffer = this->socket->read();
 		}
 	}
@@ -171,7 +198,7 @@ void ProcessManager::monitor_fnc()
 			break;
 	}
 
-	if (m_applicationCrashed && !m_criticalCrash) {
+	if (m_applicationCrashed && !m_criticalCrash && !m_shutdownIntent) {
 		log_info << "Non critical crash detected. save it to app state file" << std::endl;
 		Util::updateAppState(Util::AppState::NoncriticallyDead);
 	}
@@ -279,15 +306,40 @@ void ProcessManager::handleCrash(std::wstring path)
 	} else {
 		log_info << "Terminate non critical processes" << std::endl;
 		terminateNonCritical();
-		// Blocking operation that will return once the user
-		// decides to terminate the application
-		Util::runTerminateWindow(shouldRestart);
-		log_info << "Send exit message" << std::endl;
-		this->sendExitMessage(true);
+		if (m_shutdownIntent) {
+			log_info << "Shutdown was requested, send exit message" << std::endl;
+			this->sendExitMessage(true);
+		} else {
+			bool exitSent = false;
+			if (criticalOutputsInactive()) {
+				log_info << "No active outputs, send exit message" << std::endl;
+				this->sendExitMessage(true);
+				exitSent = true;
+			}
+			// Blocking operation that will return once the user
+			// decides to terminate the application
+			Util::runTerminateWindow(shouldRestart);
+			if (!exitSent) {
+				log_info << "Send exit message" << std::endl;
+				this->sendExitMessage(true);
+			}
+		}
 	}
 
 	if (shouldRestart)
 		Util::restartApp(path);
+}
+
+bool ProcessManager::criticalOutputsInactive()
+{
+	for (auto &process : this->processes) {
+		if (!process->isCritical())
+			continue;
+		auto it = this->outputActive.find(process->getPID());
+		if (it != this->outputActive.end() && !it->second)
+			return true;
+	}
+	return false;
 }
 
 void ProcessManager::sendExitMessage(bool appCrashed)
@@ -295,8 +347,14 @@ void ProcessManager::sendExitMessage(bool appCrashed)
 	std::vector<char> buffer;
 	buffer.push_back(appCrashed);
 
-	if (this->socket->write(true, buffer) <= 0)
-		log_info << "Failed to send exit message" << std::endl;
+	if (this->socket->write(true, buffer) > 0)
+		return;
+
+	// Only an obs64 that never sent OUTPUT_STATE waits on the shared legacy pipe
+	if (this->outputActive.empty() && this->socket->writeLegacyExit(buffer) > 0)
+		return;
+
+	log_info << "Failed to send exit message" << std::endl;
 }
 
 void ProcessManager::terminateAll(void)

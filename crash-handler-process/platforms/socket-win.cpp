@@ -69,7 +69,12 @@ void Socket_WIN::DisconnectAndReconnect(DWORD i)
 Socket_WIN::Socket_WIN()
 {
 	this->name = ipc_path;
-	this->name_exit = L"\\\\.\\pipe\\exit-slobs-crash-handler";
+	this->name_exit_legacy = L"\\\\.\\pipe\\exit-slobs-crash-handler";
+	const std::wstring pipe_prefix = L"\\\\.\\pipe\\";
+	if (ipc_path.compare(0, pipe_prefix.size(), pipe_prefix) == 0)
+		this->name_exit = pipe_prefix + L"exit-" + ipc_path.substr(pipe_prefix.size());
+	else
+		this->name_exit = this->name_exit_legacy;
 	int retries = 5;
 
 	for (int i = 0; i < INSTANCES; i++) {
@@ -185,7 +190,7 @@ std::vector<char> Socket_WIN::read()
 		// The read operation completed successfully.
 		if (Pipe[i].cbRead > 0 && fSuccess) {
 			Pipe[i].fPendingIO = FALSE;
-			return Pipe[i].chRequest;
+			return std::vector<char>(Pipe[i].chRequest.begin(), Pipe[i].chRequest.begin() + std::min<DWORD>(Pipe[i].cbRead, BUFSIZE));
 		} else {
 			log_error << "Socket::read instance_" << i << " failed with error code " << dwErr << "\n";
 			if (!fSuccess && (dwErr == ERROR_IO_PENDING)) {
@@ -224,8 +229,20 @@ std::vector<char> Socket_WIN::read()
 
 int Socket_WIN::write(bool exit, std::vector<char> buffer)
 {
-	HANDLE hPipe = CreateFile(exit ? const_cast<LPWSTR>(this->name_exit.c_str()) : const_cast<LPWSTR>(this->name.c_str()), GENERIC_READ | GENERIC_WRITE, 0,
-				  NULL, OPEN_EXISTING, 0, NULL);
+	return writeToPipe(exit ? this->name_exit : this->name, buffer);
+}
+
+int Socket_WIN::writeLegacyExit(std::vector<char> buffer)
+{
+	if (this->name_exit == this->name_exit_legacy)
+		return 0;
+
+	return writeToPipe(this->name_exit_legacy, buffer);
+}
+
+int Socket_WIN::writeToPipe(const std::wstring &pipe_name, const std::vector<char> &buffer)
+{
+	HANDLE hPipe = CreateFile(const_cast<LPWSTR>(pipe_name.c_str()), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
 
 	if (hPipe == INVALID_HANDLE_VALUE)
 		return 0;
@@ -233,7 +250,7 @@ int Socket_WIN::write(bool exit, std::vector<char> buffer)
 	if (GetLastError() == ERROR_PIPE_BUSY)
 		return 0;
 
-	DWORD bytesWritten;
+	DWORD bytesWritten = 0;
 
 	WriteFile(hPipe, buffer.data(), buffer.size(), &bytesWritten, NULL);
 

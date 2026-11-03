@@ -60,11 +60,13 @@ function unregisterProcess(pid) {
     tryConnect(buffer);
 }
 
-async function terminateCrashHandler(pid) {
+function markShutdownIntent(pid) {
+    console.log('[crash-handler] Mark shutdown intent ' + pid);
     const buffer = new Buffer.alloc(5);
     let offset = 0;
-    buffer.writeUInt8(2, offset++);
+    buffer.writeUInt8(7, offset++);
     buffer.writeUInt32LE(pid, offset++);
+
     tryConnect(buffer);
 }
 
@@ -113,6 +115,6 @@ function startCrashHandler(workingDirectory, version, isDevEnv, cachePath = "", 
 exports.startCrashHandler = startCrashHandler;
 exports.registerProcess = registerProcess;
 exports.unregisterProcess = unregisterProcess;
-exports.terminateCrashHandler = terminateCrashHandler;
+exports.markShutdownIntent = markShutdownIntent;
 
 exports = crash_handler;

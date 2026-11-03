@@ -20,6 +20,7 @@
 #include <thread>
 #include <atomic>
 #include <condition_variable>
+#include <unordered_map>
 
 #include "socket.hpp"
 #include "process.hpp"
@@ -44,6 +45,7 @@ public:
 	void runWatcher();
 	bool m_applicationCrashed;
 	bool m_criticalCrash;
+	std::atomic<bool> m_shutdownIntent{false};
 
 	void handleCrash(std::wstring path);
 	void sendExitMessage(bool appCrashed);
@@ -53,6 +55,7 @@ private:
 	ThreadData *monitor = nullptr;
 	std::vector<std::unique_ptr<Process>> processes;
 	std::mutex mtx;
+	std::unordered_map<uint32_t, bool> outputActive;
 	std::unique_ptr<Socket> socket;
 
 	void watcher_fnc();
@@ -68,4 +71,5 @@ private:
 
 	void terminateAll(void);
 	void terminateNonCritical(void);
+	bool criticalOutputsInactive();
 };
