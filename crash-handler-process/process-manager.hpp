@@ -48,7 +48,7 @@ public:
 	std::atomic<bool> m_shutdownIntent{false};
 
 	void handleCrash(std::wstring path);
-	void sendExitMessage(bool appCrashed);
+	bool sendExitMessage(bool appCrashed);
 
 private:
 	ThreadData *watcher = nullptr;

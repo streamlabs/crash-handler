@@ -313,8 +313,7 @@ void ProcessManager::handleCrash(std::wstring path)
 			bool exitSent = false;
 			if (criticalOutputsInactive()) {
 				log_info << "No active outputs, send exit message" << std::endl;
-				this->sendExitMessage(true);
-				exitSent = true;
+				exitSent = this->sendExitMessage(true);
 			}
 			// Blocking operation that will return once the user
 			// decides to terminate the application
@@ -332,29 +331,32 @@ void ProcessManager::handleCrash(std::wstring path)
 
 bool ProcessManager::criticalOutputsInactive()
 {
+	bool anyCritical = false;
 	for (auto &process : this->processes) {
 		if (!process->isCritical())
 			continue;
+		anyCritical = true;
 		auto it = this->outputActive.find(process->getPID());
-		if (it != this->outputActive.end() && !it->second)
-			return true;
+		if (it == this->outputActive.end() || it->second)
+			return false;
 	}
-	return false;
+	return anyCritical;
 }
 
-void ProcessManager::sendExitMessage(bool appCrashed)
+bool ProcessManager::sendExitMessage(bool appCrashed)
 {
 	std::vector<char> buffer;
 	buffer.push_back(appCrashed);
 
 	if (this->socket->write(true, buffer) > 0)
-		return;
+		return true;
 
 	// Only an obs64 that never sent OUTPUT_STATE waits on the shared legacy pipe
 	if (this->outputActive.empty() && this->socket->writeLegacyExit(buffer) > 0)
-		return;
+		return true;
 
 	log_info << "Failed to send exit message" << std::endl;
+	return false;
 }
 
 void ProcessManager::terminateAll(void)
