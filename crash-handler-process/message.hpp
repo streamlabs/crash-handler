@@ -28,6 +28,8 @@ enum class Action : uint8_t {
 	REGISTERMEMORYDUMP = 2,
 	CRASHWITHCODE = 3,
 	CRASHED_MODULE_INFO = 4,
+	OUTPUT_STATE = 6,
+	SHUTDOWN_INTENT = 7,
 };
 
 class Message {
@@ -38,8 +40,13 @@ public:
 private:
 	std::vector<char> m_buffer;
 	uint64_t index = 0;
+	bool m_valid = true;
+
+	bool ensureAvailable(uint64_t size);
+	template<typename T> T readStringImpl();
 
 public:
+	bool isValid() const { return m_valid; }
 	bool readBool();
 	uint64_t readUInt64();
 	uint32_t readUInt32();
