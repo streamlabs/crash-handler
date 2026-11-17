@@ -71,7 +71,9 @@ function markShutdownIntent(pid) {
     const attempts = 5;
     for (let i = 0; i < attempts; i++) {
       try {
-        const fd = fs.openSync(socket_name, 'r+');
+        // Write-only + nonblocking on POSIX so a missing FIFO reader fails with ENXIO and retries.
+        const flags = process.platform === 'win32' ? 'r+' : fs.constants.O_WRONLY | fs.constants.O_NONBLOCK;
+        const fd = fs.openSync(socket_name, flags);
         try {
           fs.writeSync(fd, buffer);
         } finally {
@@ -80,7 +82,7 @@ function markShutdownIntent(pid) {
         return true;
       } catch (error) {
         if (i < attempts - 1) {
-          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
         }
       }
     }
