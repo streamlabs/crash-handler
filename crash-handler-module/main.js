@@ -14,7 +14,10 @@ function tryConnect(buffer, attempt = 5, waitMs = 100) {
         readable: false,
         writable: true });
       socket.on('connect', function () {
-        socket.write(buffer);
+        // Close our end once the message is written.
+        socket.end(buffer, function () {
+          socket.destroy();
+        });
       });
       socket.on('error', function () {
         if (attempt > 0) {
