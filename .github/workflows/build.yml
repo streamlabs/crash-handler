@@ -88,6 +88,8 @@ jobs:
         run: cmake --build "${{env.BUILD_DIRECTORY}}" --target install --config ${{env.BUILD_CONFIGURATION}}
       - name: Test
         run: ctest --test-dir "${{env.BUILD_DIRECTORY}}" -C ${{env.BUILD_CONFIGURATION}} --output-on-failure
+      - name: Test crash-handler-module (JS)
+        run: node --test tests/crash-handler-module.test.js
       - name: Put version into package.json
         if: startsWith(github.ref, 'refs/tags/')
         run: node ci/bump-version.js "${{ steps.get_version.outputs.VERSION }}" "${{env.PACKAGE_PATH}}"
