@@ -86,6 +86,8 @@ jobs:
           INSTALL_PACKAGE_PATH: "${{env.BUILD_DIRECTORY}}/${{env.DISTRIBUTE_DIRECTORY}}/${{env.PACKAGE_DIRECTORY}}"
       - name: Build
         run: cmake --build "${{env.BUILD_DIRECTORY}}" --target install --config ${{env.BUILD_CONFIGURATION}}
+      - name: Test
+        run: ctest --test-dir "${{env.BUILD_DIRECTORY}}" -C ${{env.BUILD_CONFIGURATION}} --output-on-failure
       - name: Put version into package.json
         if: startsWith(github.ref, 'refs/tags/')
         run: node ci/bump-version.js "${{ steps.get_version.outputs.VERSION }}" "${{env.PACKAGE_PATH}}"
