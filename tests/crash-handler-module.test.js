@@ -3,14 +3,18 @@
 //
 // main.js is loaded unchanged. Two things are stubbed so no native build or real
 // crash-handler process is needed:
-//   - './crash-handler.node' (the native addon, which main.js loads but never uses)
-//   - child_process.spawn (so startCrashHandler() sets the pipe name without launching anything)
+//   - './crash-handler.node' (the native addon, which main.js loads but never uses),
+//     replaced while main.js is first loaded
+//   - child_process.spawn, mocked for the whole suite. main.js requires child_process
+//     inside startCrashHandler(), so the mock must stay in place for every call; it
+//     lets startCrashHandler() set the pipe name without launching anything.
 // A Node pipe server stands in for crash-handler-process.
 
 'use strict';
 
-const { test, describe, before, after } = require('node:test');
+const { test, describe, before, after, mock } = require('node:test');
 const assert = require('node:assert');
+const childProcess = require('node:child_process');
 const Module = require('node:module');
 const net = require('node:net');
 const path = require('node:path');
@@ -20,21 +24,19 @@ const isWindows = process.platform === 'win32';
 const MAIN_JS = path.join(__dirname, '..', 'crash-handler-module', 'main.js');
 
 let crashHandler;
+let spawnMock;
 let pipeCounter = 0;
+
+function fakeSpawn() {
+  const fake = new EventEmitter();
+  fake.unref = () => {};
+  return fake;
+}
 
 function loadMainJs() {
   const originalLoad = Module._load;
   Module._load = function (request, parent, isMain) {
     if (request === './crash-handler.node') return {};
-    if (request === 'child_process') {
-      return {
-        spawn() {
-          const fake = new EventEmitter();
-          fake.unref = () => {};
-          return fake;
-        },
-      };
-    }
     return originalLoad.call(this, request, parent, isMain);
   };
   try {
@@ -48,7 +50,10 @@ function loadMainJs() {
 // Points main.js at a fresh, unique pipe and returns that pipe's full path.
 function usePipe() {
   const prefix = `crash-handler-js-test-${process.pid}-${++pipeCounter}`;
+  const spawnCalls = spawnMock.mock.callCount();
   crashHandler.startCrashHandler('C:\\fake\\app.asar', '0.0.0', 'false', '', prefix);
+  // Guards the stub itself: if main.js ever bypassed the mock, the real spawn() would run.
+  assert.strictEqual(spawnMock.mock.callCount(), spawnCalls + 1, 'startCrashHandler() should use the mocked spawn');
   return `\\\\.\\pipe\\${prefix}-crash-handler`;
 }
 
@@ -117,10 +122,12 @@ describe('crash-handler-module main.js', { skip: !isWindows && 'named pipe clien
   before(() => {
     originalLog = console.log;
     console.log = () => {}; // main.js logs every call
+    spawnMock = mock.method(childProcess, 'spawn', fakeSpawn);
     crashHandler = loadMainJs();
   });
 
   after(() => {
+    mock.restoreAll();
     console.log = originalLog;
   });
 
