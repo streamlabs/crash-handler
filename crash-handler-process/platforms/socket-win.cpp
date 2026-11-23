@@ -194,28 +194,6 @@ std::vector<char> Socket_WIN::read()
 			}
 			DisconnectAndReconnect(i);
 		}
-		Pipe[i].dwState = WRITING_STATE;
-		Pipe[i].fPendingIO = false;
-
-		break;
-	}
-	case WRITING_STATE: {
-		log_error << "Socket::read instance_" << i << " ready to write and disconnect \n";
-		const char finish_data[4] = {};
-		DWORD sent_bytes = 0;
-		fSuccess = WriteFile(Pipe[i].hPipeInst, finish_data, 4, &sent_bytes, &Pipe[i].oOverlap);
-
-		if (fSuccess && sent_bytes == 4) {
-			Pipe[i].fPendingIO = false;
-			Pipe[i].dwState = READING_STATE;
-		} else {
-			dwErr = GetLastError();
-			if (!fSuccess && (dwErr == ERROR_IO_PENDING)) {
-				Pipe[i].fPendingIO = true;
-			} else {
-				DisconnectAndReconnect(i);
-			}
-		}
 		break;
 	}
 	}
