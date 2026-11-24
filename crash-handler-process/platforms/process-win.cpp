@@ -72,7 +72,7 @@ Process_WIN::~Process_WIN()
 		log_info << "taskkill retval: " << retval << std::endl;
 	}
 
-	if (this->checker->joinable())
+	if (this->checker && this->checker->joinable())
 		this->checker->join();
 
 	if (memorydump != nullptr && memorydump->joinable())
@@ -265,7 +265,7 @@ void Process_WIN::terminate(void)
 		safeCloseHandle(handle_OpenProcess);
 	}
 
-	if (this->checker->joinable())
+	if (this->checker && this->checker->joinable())
 		this->checker->join();
 
 	log_debug << "Terminated pid : " << PID << std::endl;

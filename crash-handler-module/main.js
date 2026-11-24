@@ -63,12 +63,33 @@ function unregisterProcess(pid) {
     tryConnect(buffer);
 }
 
-async function terminateCrashHandler(pid) {
+// Synchronous so the message is delivered even if the caller exits right after.
+function markShutdownIntent(pid) {
+    console.log('[crash-handler] Mark shutdown intent ' + pid);
     const buffer = new Buffer.alloc(5);
     let offset = 0;
-    buffer.writeUInt8(2, offset++);
+    buffer.writeUInt8(7, offset++);
     buffer.writeUInt32LE(pid, offset++);
-    tryConnect(buffer);
+
+    const attempts = 5;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        // Write-only + nonblocking on POSIX so a missing FIFO reader fails with ENXIO and retries.
+        const flags = process.platform === 'win32' ? 'r+' : fs.constants.O_WRONLY | fs.constants.O_NONBLOCK;
+        const fd = fs.openSync(socket_name, flags);
+        try {
+          fs.writeSync(fd, buffer);
+        } finally {
+          fs.closeSync(fd);
+        }
+        return true;
+      } catch (error) {
+        if (i < attempts - 1) {
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 25);
+        }
+      }
+    }
+    return false;
 }
 
 function startCrashHandler(workingDirectory, version, isDevEnv, cachePath = "", socket_prefix = "") {
@@ -116,6 +137,6 @@ function startCrashHandler(workingDirectory, version, isDevEnv, cachePath = "", 
 exports.startCrashHandler = startCrashHandler;
 exports.registerProcess = registerProcess;
 exports.unregisterProcess = unregisterProcess;
-exports.terminateCrashHandler = terminateCrashHandler;
+exports.markShutdownIntent = markShutdownIntent;
 
 exports = crash_handler;
