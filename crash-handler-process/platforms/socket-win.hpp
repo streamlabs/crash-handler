@@ -23,7 +23,6 @@
 
 #define CONNECTING_STATE 0
 #define READING_STATE 1
-#define WRITING_STATE 2
 #define INSTANCES 8
 #define PIPE_TIMEOUT 5000
 #define BUFSIZE 512
